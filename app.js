@@ -1,12 +1,12 @@
 'use strict';
 /* Minhas Finanças — PWA offline. Dados ficam no IndexedDB do aparelho. */
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.1';
 const NICHOS = [
   { id: 'acoes',   nome: 'Ações',          cor: '--s1' },
   { id: 'imoveis', nome: 'FIIs e Terrenos', cor: '--s2' },
   { id: 'caixa',   nome: 'Caixa',          cor: '--s3' },
-  { id: 'dolar',   nome: 'Dólar',          cor: '--s4' },
+  { id: 'dolar',   nome: 'Dólar e Cripto', cor: '--s4' },
 ];
 const TIPOS = {
   acao:    { nome: 'Ação',    nicho: 'acoes' },
@@ -14,7 +14,12 @@ const TIPOS = {
   terreno: { nome: 'Terreno', nicho: 'imoveis' },
   caixa:   { nome: 'Caixa',   nicho: 'caixa' },
   dolar:   { nome: 'Dólar',   nicho: 'dolar' },
+  cripto:  { nome: 'Cripto',  nicho: 'dolar' },
 };
+const COINS = { BTC: 'bitcoin', ETH: 'ethereum', SOL: 'solana', USDT: 'tether', USDC: 'usd-coin', BNB: 'binancecoin', XRP: 'ripple', ADA: 'cardano', DOGE: 'dogecoin', LTC: 'litecoin', DOT: 'polkadot', AVAX: 'avalanche-2', LINK: 'chainlink', TRX: 'tron', POL: 'polygon-ecosystem-token', MATIC: 'polygon-ecosystem-token', TON: 'the-open-network', SHIB: 'shiba-inu', XLM: 'stellar', ATOM: 'cosmos', UNI: 'uniswap', BCH: 'bitcoin-cash' };
+const isPapel = a => a.tipo === 'acao' || a.tipo === 'fii';
+const rende = a => a.tipo === 'caixa' && a.rende !== 'nao';
+function taxaEfetiva(cdiAnual, pctCdi) { const d = Math.pow(1 + cdiAnual / 100, 1 / 252) - 1; return (Math.pow(1 + d * pctCdi / 100, 252) - 1) * 100; }
 const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 
 /* ---------- utilidades ---------- */
@@ -92,7 +97,7 @@ function estadoInicial() {
       catGastos: ['Moradia', 'Alimentação', 'Mercado', 'Transporte', 'Saúde', 'Educação', 'Lazer', 'Assinaturas', 'Contas da casa', 'Vestuário', 'Impostos', 'Outros'],
       catReceitas: ['Salário', 'Pró-labore', 'Locação', 'Vendas', 'Dividendos e juros', 'Freelance', 'Outros'],
       formasPag: ['Pix', 'Cartão de crédito', 'Cartão de débito', 'Dinheiro', 'Boleto'],
-      usdbrl: null, usdEm: null, ultimaCotacao: null, ultimoBackup: null,
+      usdbrl: null, usdEm: null, ultimaCotacao: null, ultimoBackup: null, cdi: null, cdiData: null, cdiEm: null, cdiManual: false,
     },
   };
 }
@@ -103,7 +108,7 @@ const ui = { tab: 'gastos', mes: mesAtual(), sel: null, busy: false };
 function valores(a) {
   const q = S.config.usdbrl;
   switch (a.tipo) {
-    case 'acao': case 'fii': {
+    case 'acao': case 'fii': case 'cripto': {
       const custo = (a.qtd || 0) * (a.pm || 0);
       const preco = a.precoAtual || a.pm || 0;
       return { custo, atual: (a.qtd || 0) * preco };
@@ -229,7 +234,7 @@ function renderInvest() {
 
   const temTicker = S.ativos.some(a => a.tipo === 'acao' || a.tipo === 'fii');
   h += `<section class="card"><div class="quote">
-    <div>Dólar <b class="num">${q ? 'R$ ' + nfmt(q, 4) : '—'}</b><br><small style="color:var(--muted)">Cotações ${haQuanto(S.config.ultimaCotacao)}${temTicker && !S.config.token ? ' · configure o token brapi em Ajustes' : ''}</small></div>
+    <div>Dólar <b class="num">${q ? 'R$ ' + nfmt(q, 4) : '—'}</b>${S.config.cdi ? ` · CDI <b class="num">${nfmt(S.config.cdi, 2)}%</b>` : ''}<br><small style="color:var(--muted)">Cotações ${haQuanto(S.config.ultimaCotacao)}${temTicker && !S.config.token ? ' · configure o token brapi em Ajustes' : ''}</small></div>
     <button class="btn sm sec" data-act="quotes" ${ui.busy ? 'disabled' : ''}>${ui.busy ? '<span class="spin"></span>Atualizando' : 'Atualizar'}</button>
   </div></section>`;
 
@@ -248,28 +253,52 @@ function renderInvest() {
     if (!g.itens.length) continue;
     g.itens.sort((a, b) => b.atual - a.atual);
     h += `<section class="card"><h3><span><span class="sw" style="display:inline-block;background:var(${n.cor});margin-right:8px;vertical-align:-1px"></span>${n.nome}</span><small class="num">${money(g.atual)} · ${pct(c.total ? g.atual / c.total : 0)}</small></h3>`;
-    for (const it of g.itens) {
-      const a = it.a; const r = it.custo ? (it.atual - it.custo) / it.custo : 0;
-      let titulo, sub;
-      if (a.tipo === 'acao' || a.tipo === 'fii') {
-        titulo = a.ticker;
-        sub = `${qfmt(a.qtd)} × ${a.precoAtual ? money(a.precoAtual) : money(a.pm) + ' (PM)'}${a.atualizadoEm ? ' · ' + haQuanto(a.atualizadoEm) : ''}`;
-      } else if (a.tipo === 'dolar') {
-        titulo = a.nome || 'Dólar';
-        sub = `${usd.format(a.usd || 0)} · PM R$ ${nfmt(a.cotCompra || 0, 2)}`;
-      } else {
-        titulo = a.nome || TIPOS[a.tipo].nome;
-        sub = `${TIPOS[a.tipo].nome}${a.atualizadoEm ? ' · ' + new Date(a.atualizadoEm).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}`;
-      }
-      h += `<button class="row" data-act="editAtivo" data-id="${a.id}">
-        <div class="ic">${esc(TIPOS[a.tipo].nome.slice(0, 3))}</div>
-        <div class="mid"><div class="t">${esc(titulo)}</div><div class="s num">${esc(sub)}</div></div>
-        <div class="r"><div class="t num">${money(it.atual)}</div><div class="s num ${r >= 0 ? 'pos' : 'neg'}">${r >= 0 ? '▲' : '▼'} ${pct(Math.abs(r))}</div></div>
-      </button>`;
+    const subs = n.id === 'caixa' ? [['Com rendimento', g.itens.filter(x => rende(x.a))], ['Sem rendimento', g.itens.filter(x => !rende(x.a))]]
+      : n.id === 'dolar' ? [['Dólar', g.itens.filter(x => x.a.tipo === 'dolar')], ['Cripto', g.itens.filter(x => x.a.tipo === 'cripto')]]
+      : [[null, g.itens]];
+    for (const [rot, itens] of subs) {
+      if (!itens.length) continue;
+      if (rot) { const st = itens.reduce((s, x) => s + x.atual, 0); h += `<div class="day subg"><span>${rot}</span><span class="num">${money(st)} · ${pct(g.atual ? st / g.atual : 0)}</span></div>`; }
+      h += itens.map(linhaAtivo).join('');
     }
     h += `</section>`;
   }
   return h;
+}
+
+function precoCurto(p) {
+  if (!p) return 'R$ 0';
+  if (p >= 1000) return 'R$ ' + nfmt(p, 0);
+  if (p >= 1) return money(p);
+  return 'R$ ' + new Intl.NumberFormat('pt-BR', { maximumSignificantDigits: 4 }).format(p);
+}
+function linhaAtivo(it) {
+  const a = it.a; const r = it.custo ? (it.atual - it.custo) / it.custo : 0;
+  const quando = a.atualizadoEm ? ' · ' + haQuanto(a.atualizadoEm) : '';
+  let titulo, sub;
+  if (isPapel(a)) {
+    titulo = a.ticker;
+    sub = `${qfmt(a.qtd)} × ${a.precoAtual ? money(a.precoAtual) : money(a.pm) + ' (PM)'}${quando}`;
+  } else if (a.tipo === 'cripto') {
+    titulo = a.simbolo;
+    sub = `${qfmt(a.qtd)} × ${precoCurto(a.precoAtual || a.pm)}${a.precoAtual ? '' : ' (PM)'}`;
+  } else if (a.tipo === 'dolar') {
+    titulo = a.nome || 'Dólar';
+    sub = `US$ ${nfmt(a.usd || 0, 2)} · PM ${nfmt(a.cotCompra || 0, 2)}`;
+  } else if (a.tipo === 'caixa') {
+    titulo = a.nome || 'Caixa';
+    const cdi = S.config.cdi;
+    sub = rende(a) ? (a.cdiPct ? `${qfmt(a.cdiPct)}% CDI${cdi ? ' · ' + nfmt(taxaEfetiva(cdi, a.cdiPct), 1) + '% a.a.' : ''}` : 'Com rendimento · % do CDI não informado') : 'Sem rendimento';
+  } else {
+    titulo = a.nome || TIPOS[a.tipo].nome;
+    sub = `${TIPOS[a.tipo].nome}${a.atualizadoEm ? ' · ' + new Date(a.atualizadoEm).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}`;
+  }
+  const semVar = a.tipo === 'caixa' && !rende(a);
+  return `<button class="row" data-act="editAtivo" data-id="${a.id}">
+    <div class="ic">${esc(TIPOS[a.tipo].nome.slice(0, 3))}</div>
+    <div class="mid"><div class="t">${esc(titulo)}</div><div class="s num">${esc(sub)}</div></div>
+    <div class="r"><div class="t num">${money(it.atual)}</div>${semVar ? '' : `<div class="s num ${r >= 0 ? 'pos' : 'neg'}">${r >= 0 ? '▲' : '▼'} ${pct(Math.abs(r))}</div>`}</div>
+  </button>`;
 }
 
 /* ---------- bottom sheet ---------- */
@@ -314,27 +343,48 @@ function formLanc(kind, item) {
 
 function camposAtivo(tipo, a) {
   const f = (label, name, val, ph = '', mode = 'decimal') => `<div class="field"><label>${label}</label><input name="${name}" inputmode="${mode}" placeholder="${ph}" value="${esc(val)}"></div>`;
-  if (tipo === 'acao' || tipo === 'fii') return `
+  if (isPapel({ tipo })) return `
     <div class="field"><label>Ticker</label><input name="ticker" placeholder="${tipo === 'fii' ? 'HGLG11' : 'PETR4'}" autocapitalize="characters" value="${esc(a.ticker || '')}" required></div>
     ${f('Quantidade', 'qtd', numIn(a.qtd), '0')}
+    ${f('Preço médio (R$)', 'pm', numIn(a.pm), '0,00')}
+    ${f('Preço atual (R$)', 'precoAtual', numIn(a.precoAtual), 'automático')}`;
+  if (tipo === 'cripto') return `
+    <div class="field"><label>Moeda (símbolo)</label><input name="simbolo" placeholder="BTC, ETH, SOL" autocapitalize="characters" value="${esc(a.simbolo || '')}" required></div>
+    ${f('Quantidade', 'qtd', numIn(a.qtd), '0,00000000')}
     ${f('Preço médio (R$)', 'pm', numIn(a.pm), '0,00')}
     ${f('Preço atual (R$)', 'precoAtual', numIn(a.precoAtual), 'automático')}`;
   if (tipo === 'dolar') return `
     ${f('Descrição', 'nome', a.nome || '', 'Ex.: Conta global', 'text')}
     ${f('Quantidade (US$)', 'usd', numIn(a.usd), '0,00')}
     ${f('Cotação média de compra', 'cotCompra', numIn(a.cotCompra), '5,0000')}`;
+  if (tipo === 'caixa') {
+    const com = a.rende !== 'nao';
+    return `
+    <div class="field"><label>Tipo de caixa</label><select name="rende" data-redraw="1"><option value="sim" ${com ? 'selected' : ''}>Com rendimento</option><option value="nao" ${com ? '' : 'selected'}>Sem rendimento</option></select></div>
+    ${f('Nome', 'nome', a.nome || '', com ? 'Ex.: CDB Banco X, Tesouro Selic' : 'Ex.: Conta corrente, espécie', 'text')}
+    ${com ? `${f('Valor aplicado (R$)', 'valorAplicado', numIn(a.valorAplicado), '0,00')}
+    ${f('Saldo atual (R$)', 'valorAtual', numIn(a.valorAtual), 'igual ao aplicado')}
+    ${f('% do CDI', 'cdiPct', numIn(a.cdiPct), 'Ex.: 100, 110')}` : f('Saldo (R$)', 'valorAtual', numIn(a.valorAtual), '0,00')}`;
+  }
   return `
-    ${f('Nome', 'nome', a.nome || '', tipo === 'terreno' ? 'Ex.: Lote Jardim X' : 'Ex.: CDB Banco X / Tesouro Selic', 'text')}
-    ${f(tipo === 'terreno' ? 'Valor de compra (R$)' : 'Valor aplicado (R$)', 'valorAplicado', numIn(a.valorAplicado), '0,00')}
-    ${f(tipo === 'terreno' ? 'Valor atual estimado' : 'Saldo atual (R$)', 'valorAtual', numIn(a.valorAtual), 'igual ao aplicado')}`;
+    ${f('Nome', 'nome', a.nome || '', 'Ex.: Lote Jardim X', 'text')}
+    ${f('Valor de compra (R$)', 'valorAplicado', numIn(a.valorAplicado), '0,00')}
+    ${f('Valor atual estimado', 'valorAtual', numIn(a.valorAtual), 'igual ao de compra')}`;
 }
-const DICAS = {
-  acao: 'O preço atual é buscado na brapi ao tocar em Atualizar. Deixe em branco para usar o automático.',
-  fii: 'O preço atual é buscado na brapi ao tocar em Atualizar. Deixe em branco para usar o automático.',
-  terreno: 'Atualize o valor estimado sempre que tiver uma avaliação nova.',
-  caixa: 'Conta, CDB, Tesouro Selic, reserva de emergência. Atualize o saldo quando quiser.',
-  dolar: 'O valor em reais usa a cotação do dólar atualizada automaticamente.',
-};
+function dica(tipo, a) {
+  if (tipo === 'caixa') {
+    if (a.rende === 'nao') return 'Dinheiro parado: conta corrente, espécie, saldo em carteira digital sem rendimento.';
+    const cdi = S.config.cdi;
+    return `CDB, LCI, Tesouro Selic, conta remunerada. O % do CDI é só registro; o saldo você atualiza quando quiser.${cdi ? ` CDI atual: ${nfmt(cdi, 2)}% a.a.` : ''}`;
+  }
+  return {
+    acao: 'O preço atual é buscado na brapi ao tocar em Atualizar. Deixe em branco para usar o automático.',
+    fii: 'O preço atual é buscado na brapi ao tocar em Atualizar. Deixe em branco para usar o automático.',
+    terreno: 'Atualize o valor estimado sempre que tiver uma avaliação nova.',
+    dolar: 'O valor em reais usa a cotação do dólar atualizada automaticamente.',
+    cripto: 'Cotação em reais buscada automaticamente na CoinGecko, sem token. Use o símbolo da moeda (BTC, ETH, SOL…).',
+  }[tipo];
+}
 
 function formAtivo(a) {
   const novo = !a; a = a ? { ...a } : { tipo: 'acao' };
@@ -344,34 +394,57 @@ function formAtivo(a) {
       <h2>${novo ? 'Novo investimento' : 'Editar investimento'}<button type="button" data-act="closeSheet">Cancelar</button></h2>
       ${novo ? `<div class="seg-ctl">${Object.entries(TIPOS).map(([k, t]) => `<button type="button" data-tipo="${k}" class="${k === tipo ? 'on' : ''}">${t.nome}</button>`).join('')}</div>` : ''}
       <div class="group">${camposAtivo(tipo, a)}</div>
-      <p class="hint">${DICAS[tipo]}</p>
+      <p class="hint">${dica(tipo, a)}</p>
       <div class="actions">
         <button class="btn full" type="submit">Salvar</button>
         ${novo ? '' : `<button class="btn danger full" type="button" data-act="delAtivo" data-id="${a.id}">Excluir investimento</button>`}
       </div>
     </form>`);
     document.querySelectorAll('.seg-ctl button').forEach(b => b.onclick = () => { coletar(); tipo = b.dataset.tipo; draw(); });
+    document.querySelectorAll('[data-redraw]').forEach(el => el.onchange = () => { coletar(); draw(); });
     $('#f').onsubmit = submit;
   };
-  const coletar = () => { const fd = new FormData($('#f')); for (const [k, v] of fd) a[k] = ['ticker', 'nome'].includes(k) ? v : parseNum(v); };
+  const TEXTO = ['ticker', 'nome', 'simbolo', 'rende'];
+  const coletar = () => { const fd = new FormData($('#f')); for (const [k, v] of fd) a[k] = TEXTO.includes(k) ? v : parseNum(v); };
   const submit = async e => {
     e.preventDefault(); coletar();
     const o = { tipo };
-    const num = k => isNaN(a[k]) ? undefined : a[k];
-    if (tipo === 'acao' || tipo === 'fii') {
+    const num = k => (a[k] === undefined || isNaN(a[k])) ? undefined : a[k];
+    if (isPapel({ tipo })) {
       o.ticker = String(a.ticker || '').toUpperCase().replace(/\s/g, '');
       o.qtd = num('qtd'); o.pm = num('pm'); o.precoAtual = num('precoAtual');
       if (!/^[A-Z0-9]{4,7}$/.test(o.ticker)) return toast('Ticker inválido. Ex.: PETR4, HGLG11');
       if (!(o.qtd > 0)) return toast('Informe a quantidade');
       if (!(o.pm >= 0)) return toast('Informe o preço médio');
+    } else if (tipo === 'cripto') {
+      o.simbolo = String(a.simbolo || '').toUpperCase().replace(/\s/g, '');
+      o.qtd = num('qtd'); o.pm = num('pm'); o.precoAtual = num('precoAtual');
+      if (!/^[A-Z0-9]{2,10}$/.test(o.simbolo)) return toast('Símbolo inválido. Ex.: BTC, ETH');
+      if (!(o.qtd > 0)) return toast('Informe a quantidade');
+      if (!(o.pm >= 0)) return toast('Informe o preço médio');
+      const antigo = !novo && S.ativos.find(x => x.id === a.id);
+      o.coinId = COINS[o.simbolo] || (antigo && antigo.simbolo === o.simbolo ? antigo.coinId : undefined);
     } else if (tipo === 'dolar') {
       o.nome = (a.nome || '').trim(); o.usd = num('usd'); o.cotCompra = num('cotCompra');
       if (!(o.usd > 0)) return toast('Informe a quantidade em dólares');
       if (!(o.cotCompra > 0)) return toast('Informe a cotação de compra');
+    } else if (tipo === 'caixa') {
+      o.nome = (a.nome || '').trim(); o.rende = a.rende === 'nao' ? 'nao' : 'sim';
+      if (!o.nome) return toast('Informe um nome');
+      if (o.rende === 'nao') {
+        o.valorAtual = num('valorAtual');
+        if (!(o.valorAtual >= 0)) return toast('Informe o saldo');
+        o.valorAplicado = o.valorAtual; o.cdiPct = undefined;
+      } else {
+        o.valorAplicado = num('valorAplicado'); o.valorAtual = num('valorAtual'); o.cdiPct = num('cdiPct');
+        if (!(o.valorAplicado >= 0)) return toast('Informe o valor aplicado');
+        if (o.valorAtual === undefined) o.valorAtual = o.valorAplicado;
+        if (o.cdiPct !== undefined && !(o.cdiPct > 0 && o.cdiPct <= 300)) return toast('% do CDI inválido. Ex.: 100, 110');
+      }
     } else {
       o.nome = (a.nome || '').trim(); o.valorAplicado = num('valorAplicado'); o.valorAtual = num('valorAtual');
       if (!o.nome) return toast('Informe um nome');
-      if (!(o.valorAplicado >= 0)) return toast('Informe o valor aplicado');
+      if (!(o.valorAplicado >= 0)) return toast('Informe o valor de compra');
       if (o.valorAtual === undefined) o.valorAtual = o.valorAplicado;
     }
     let alvo;
@@ -382,11 +455,14 @@ function formAtivo(a) {
       const mudouPreco = alvo.precoAtual !== o.precoAtual;
       Object.assign(alvo, o);
       if ((tipo === 'terreno' || tipo === 'caixa') && mudouValor) alvo.atualizadoEm = Date.now();
-      if ((tipo === 'acao' || tipo === 'fii') && mudouPreco && o.precoAtual) alvo.atualizadoEm = Date.now();
+      if ((isPapel(alvo) || tipo === 'cripto') && mudouPreco && o.precoAtual) alvo.atualizadoEm = Date.now();
     }
     if (novo && (tipo === 'terreno' || tipo === 'caixa')) alvo.atualizadoEm = Date.now();
     await save(); closeSheet(); render(); toast('Investimento salvo');
-    if ((tipo === 'acao' || tipo === 'fii') && !o.precoAtual && navigator.onLine) atualizarTicker(alvo.ticker);
+    if (!o.precoAtual && navigator.onLine) {
+      if (isPapel(alvo)) atualizarTicker(alvo.ticker);
+      else if (tipo === 'cripto') atualizarCripto(true);
+    }
   };
   draw();
 }
@@ -432,6 +508,55 @@ async function cotacaoDolar() {
   }
   return null;
 }
+async function resolverCoin(sym) {
+  if (COINS[sym]) return COINS[sym];
+  try {
+    const r = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(sym)}`, { cache: 'no-store' });
+    if (!r.ok) return undefined;
+    const j = await r.json();
+    const c = (j.coins || []).find(c => String(c.symbol).toUpperCase() === sym);
+    return c && c.id;
+  } catch { return undefined; }
+}
+async function atualizarCripto(mostrar) {
+  const itens = S.ativos.filter(a => a.tipo === 'cripto');
+  const res = { total: 0, ok: 0, falhas: [] };
+  if (!itens.length) return res;
+  for (const a of itens) if (!a.coinId) a.coinId = await resolverCoin(a.simbolo);
+  const ids = [...new Set(itens.map(a => a.coinId).filter(Boolean))];
+  let precos = {};
+  if (ids.length) {
+    try {
+      const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(',')}&vs_currencies=brl`, { cache: 'no-store' });
+      if (r.ok) precos = await r.json();
+    } catch { }
+  }
+  const simbolos = [...new Set(itens.map(a => a.simbolo))];
+  res.total = simbolos.length;
+  for (const sym of simbolos) {
+    const doSym = itens.filter(a => a.simbolo === sym);
+    const p = doSym[0].coinId && precos[doSym[0].coinId] && precos[doSym[0].coinId].brl;
+    if (p > 0) { res.ok++; doSym.forEach(a => { a.precoAtual = p; a.atualizadoEm = Date.now(); }); }
+    else res.falhas.push(`${sym} (${doSym[0].coinId ? 'sem cotação' : 'moeda não encontrada'})`);
+  }
+  if (mostrar) { await save(); render(); toast(res.falhas.length ? 'Falhou: ' + res.falhas.join(', ') : `${simbolos.join(', ')} atualizado`, res.falhas.length ? 5000 : 2600); }
+  return res;
+}
+async function atualizarCDI(forcar) {
+  const c = S.config;
+  if (c.cdiManual) return false;
+  if (!forcar && c.cdiEm && Date.now() - c.cdiEm < 12 * 3600e3) return true;
+  const sgs = n => `https://api.bcb.gov.br/dados/serie/bcdata.sgs.${n}/dados/ultimos/1?formato=json`;
+  try {
+    const r = await fetch(sgs(4389), { cache: 'no-store' }); // CDI anualizado base 252 (% a.a.)
+    if (r.ok) { const j = await r.json(); const v = parseFloat(String(j[0].valor).replace(',', '.')); if (v > 0) { c.cdi = v; c.cdiData = j[0].data; c.cdiEm = Date.now(); return true; } }
+  } catch { }
+  try {
+    const r = await fetch(sgs(12), { cache: 'no-store' }); // CDI diário (% a.d.)
+    if (r.ok) { const j = await r.json(); const d = parseFloat(String(j[0].valor).replace(',', '.')); if (d > 0) { c.cdi = (Math.pow(1 + d / 100, 252) - 1) * 100; c.cdiData = j[0].data; c.cdiEm = Date.now(); return true; } }
+  } catch { }
+  return false;
+}
 function msgErro(e) {
   if (e === 401) return 'token inválido ou ausente';
   if (e === 402 || e === 403) return 'seu plano brapi não libera esse ativo';
@@ -452,6 +577,9 @@ async function atualizarCotacoes(manual) {
   ui.busy = true; if (ui.tab === 'invest') render();
   const d = await cotacaoDolar();
   if (d) { S.config.usdbrl = d; S.config.usdEm = Date.now(); }
+  const temCaixaCdi = S.ativos.some(a => rende(a));
+  const cdiOk = temCaixaCdi ? await atualizarCDI(manual) : true;
+  const cr = await atualizarCripto(false);
   const semToken = !(S.config.token || '').trim();
   const tickers = (!manual && semToken) ? [] : [...new Set(S.ativos.filter(a => a.tipo === 'acao' || a.tipo === 'fii').map(a => a.ticker))];
   const falhas = []; let ok = 0;
@@ -461,12 +589,15 @@ async function atualizarCotacoes(manual) {
     if (p) { ok++; S.ativos.forEach(a => { if ((a.tipo === 'acao' || a.tipo === 'fii') && a.ticker === t) { a.precoAtual = p; a.atualizadoEm = Date.now(); } }); }
     else falhas.push(`${t} (${msgErro(ultimoErro)})`);
   }
-  if (d || ok) S.config.ultimaCotacao = Date.now();
+  falhas.push(...cr.falhas);
+  if (d || ok || cr.ok) S.config.ultimaCotacao = Date.now();
   ui.busy = false; await save(); render();
   if (manual || falhas.length) {
     const partes = [];
     partes.push(d ? `Dólar R$ ${nfmt(d, 4)}` : 'Dólar não atualizado');
     if (tickers.length) partes.push(`${ok}/${tickers.length} ativos`);
+    if (cr.total) partes.push(`${cr.ok}/${cr.total} cripto`);
+    if (temCaixaCdi && !cdiOk && !S.config.cdiManual) partes.push('CDI não atualizado');
     toast(partes.join(' · ') + (falhas.length ? ` · Falhou: ${falhas.join(', ')}` : ''), falhas.length ? 6000 : 2600);
   }
 }
@@ -479,6 +610,11 @@ function abrirAjustes() {
     <div class="group"><div class="field"><label>Token</label><input id="tok" type="password" placeholder="cole seu token" value="${esc(c.token)}" autocapitalize="off" autocorrect="off"></div></div>
     <p class="hint">Crie um token gratuito em brapi.dev/dashboard. O token fica só neste aparelho. O plano gratuito busca 1 ativo por vez, com atraso de cerca de 30 min.</p>
     <div class="actions" style="margin-bottom:6px"><button class="btn sec full" data-act="testToken">Salvar e testar token</button></div>
+
+    <div class="small-cap">CDI</div>
+    <div class="group"><div class="field"><label>CDI (% a.a.)</label><input id="cdiIn" inputmode="decimal" placeholder="automático" value="${c.cdiManual && c.cdi ? numIn(Math.round(c.cdi * 100) / 100) : ''}"></div></div>
+    <p class="hint">${c.cdi ? `Em uso: ${nfmt(c.cdi, 2)}% a.a. ${c.cdiManual ? '(informado por você)' : `(Banco Central${c.cdiData ? ', ' + c.cdiData : ''})`}.` : 'Ainda não carregado.'} Deixe em branco para buscar automaticamente no Banco Central.</p>
+    <div class="actions" style="margin-bottom:6px"><button class="btn sec full" data-act="saveCdi">Salvar CDI</button></div>
 
     <div class="small-cap">Backup</div>
     <div class="group">
@@ -497,7 +633,8 @@ function abrirAjustes() {
 
     <div class="small-cap">Dados</div>
     <div class="group"><button class="setrow red" data-act="wipe"><span>Apagar todos os dados</span><span></span></button></div>
-    <p class="hint">Minhas Finanças v${APP_VERSION} · ${S.gastos.length} gastos · ${S.receitas.length} receitas · ${S.ativos.length} investimentos</p>`);
+    <div class="actions" style="margin-top:18px"><button class="btn sec full" data-act="forceUpdate">Buscar versão nova do app</button></div>
+    <p class="hint" style="margin-top:8px">Minhas Finanças v${APP_VERSION} · ${S.gastos.length} gastos · ${S.receitas.length} receitas · ${S.ativos.length} investimentos</p>`);
 }
 const NOMES_LISTA = { catGastos: 'Categorias de gastos', catReceitas: 'Categorias de receitas', formasPag: 'Formas de pagamento' };
 function editarLista(k) {
@@ -634,6 +771,29 @@ document.addEventListener('click', async e => {
       toast(p ? `Token OK · BBAS3 ${money(p)}` : `Falhou: ${msgErro(ultimoErro)}`, 4000);
       break;
     }
+    case 'saveCdi': {
+      const v = parseNum($('#cdiIn').value);
+      if ($('#cdiIn').value.trim() && !(v > 0 && v < 100)) return toast('CDI inválido. Ex.: 14,90');
+      if (v > 0) { S.config.cdi = v; S.config.cdiManual = true; S.config.cdiData = null; await save(); abrirAjustes(); render(); toast('CDI salvo'); }
+      else {
+        S.config.cdiManual = false; await save();
+        if (!navigator.onLine) { abrirAjustes(); return toast('CDI automático. Será buscado quando houver internet.'); }
+        const ok = await atualizarCDI(true); await save(); abrirAjustes(); render();
+        toast(ok ? `CDI ${nfmt(S.config.cdi, 2)}% a.a. (Banco Central)` : 'Não consegui buscar no Banco Central. Informe o CDI manualmente.', 4000);
+      }
+      break;
+    }
+    case 'forceUpdate': {
+      if (!navigator.onLine) return toast('Precisa de internet para buscar a versão nova');
+      t.disabled = true; t.innerHTML = '<span class="spin"></span>Atualizando';
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+        const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k)));
+      } catch { }
+      location.reload();
+      break;
+    }
     case 'backup': formBackup(); break;
     case 'restore': formRestore(); break;
     case 'pickFile': $('#fileIn').click(); break;
@@ -658,6 +818,14 @@ window.addEventListener('online', () => atualizarCotacoes(false));
   try { const s = await load(); if (s) S = migrar(s); } catch (e) { toast('Não foi possível abrir os dados: ' + e.message, 6000); }
   render();
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { });
-  if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => { });
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    const tinhaSW = !!navigator.serviceWorker.controller;
+    let recarregou = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (tinhaSW && !recarregou) { recarregou = true; location.reload(); } });
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+      reg.update().catch(() => { });
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => { }); });
+    }).catch(() => { });
+  }
   if (S.ativos.length && (!S.config.ultimaCotacao || Date.now() - S.config.ultimaCotacao > 30 * 60000)) atualizarCotacoes(false);
 })();

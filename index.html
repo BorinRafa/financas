@@ -63,6 +63,8 @@ main{max-width:640px;margin:0 auto;padding:4px 16px calc(env(safe-area-inset-bot
 .fill{height:100%;background:var(--s1);border-radius:0 4px 4px 0}
 .day{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:14px 0 4px}
 .day:first-of-type{margin-top:0}
+.subg{display:flex;justify-content:space-between;gap:8px;margin-top:16px;padding-bottom:4px;border-bottom:1px solid var(--line)}
+h3+.subg{margin-top:4px}
 .row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);width:100%;text-align:left}
 .row:last-child{border-bottom:0}
 .row .ic{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:var(--card2);font-size:14px;font-weight:700;color:var(--ink2);flex:none}
@@ -120,7 +122,7 @@ nav.tabs button.on{color:var(--accent)}
 .field input.bigval{font-size:28px;font-weight:700;text-align:left;padding:8px 0}
 .hint{font-size:13px;color:var(--muted);margin:-6px 4px 14px}
 .seg-ctl{display:flex;background:var(--card2);border-radius:11px;padding:3px;margin-bottom:14px;gap:2px}
-.seg-ctl button{flex:1;height:34px;border-radius:9px;font-size:13px;font-weight:600;color:var(--ink2)}
+.seg-ctl button{flex:1;height:34px;border-radius:9px;font-size:12px;padding:0 2px;font-weight:600;color:var(--ink2)}
 .seg-ctl button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .actions{display:flex;flex-direction:column;gap:8px}
 .toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 12px);transform:translateX(-50%);z-index:30;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;font-weight:500;max-width:calc(100% - 32px);box-shadow:0 6px 20px rgba(0,0,0,.2);animation:fd .2s}
