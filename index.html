@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Minhas Finanças</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Finanças">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+:root{
+  --bg:#f2f2f7; --card:#ffffff; --card2:#f7f7f5; --ink:#0b0b0b; --ink2:#52514e; --muted:#85847f;
+  --line:rgba(0,0,0,.08); --accent:#2a78d6; --accent-ink:#ffffff; --track:#ececea;
+  --pos:#0a7d32; --neg:#c62828;
+  --s1:#2a78d6; --s2:#1baf7a; --s3:#eda100; --s4:#e87ba4;
+  --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.04);
+  --r:18px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0d0d0d; --card:#1a1a19; --card2:#232321; --ink:#f0efec; --ink2:#c3c2b7; --muted:#8f8e86;
+    --line:rgba(255,255,255,.08); --accent:#3987e5; --track:#2a2a28;
+    --pos:#3ecf6e; --neg:#ff6b6b;
+    --s1:#3987e5; --s2:#199e70; --s3:#c98500; --s4:#d55181;
+    --shadow:none;
+  }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+body{min-height:100vh;overscroll-behavior-y:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+.num{font-variant-numeric:tabular-nums}
+header.top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);padding:calc(env(safe-area-inset-top) + 10px) 16px 10px}
+.toprow{display:flex;align-items:center;justify-content:space-between;gap:8px;max-width:640px;margin:0 auto}
+.toprow h1{font-size:30px;font-weight:700;letter-spacing:-.02em;margin:0}
+.iconbtn{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--card);box-shadow:var(--shadow)}
+.iconbtn svg{width:20px;height:20px}
+.monthnav{display:flex;align-items:center;justify-content:center;gap:6px;max-width:640px;margin:8px auto 0}
+.monthnav button{width:36px;height:32px;border-radius:10px;display:grid;place-items:center;color:var(--accent)}
+.monthnav span{min-width:150px;text-align:center;font-weight:600;text-transform:capitalize}
+main{max-width:640px;margin:0 auto;padding:4px 16px calc(env(safe-area-inset-bottom) + 120px)}
+.card{background:var(--card);border-radius:var(--r);padding:16px;margin:12px 0;box-shadow:var(--shadow)}
+.card h3{margin:0 0 12px;font-size:15px;font-weight:600;color:var(--ink2);display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.card h3 small{font-weight:500;color:var(--muted);font-size:13px}
+.hero .label{color:var(--ink2);font-size:14px}
+.hero .big{font-size:36px;font-weight:700;letter-spacing:-.02em;margin:2px 0 10px}
+.hero .sub{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:14px;color:var(--ink2)}
+.hero .sub b{color:var(--ink);font-weight:600}
+.pos{color:var(--pos)!important} .neg{color:var(--neg)!important}
+.pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--card2);color:var(--ink2)}
+.bar-row{margin:0 0 12px}
+.bar-row:last-child{margin:0}
+.bar-top{display:flex;justify-content:space-between;gap:8px;font-size:14px;margin-bottom:5px}
+.bar-top .v{color:var(--ink);font-weight:600}
+.bar-top .p{color:var(--muted);font-weight:500;margin-left:6px}
+.track{height:8px;background:var(--track);border-radius:4px;overflow:hidden}
+.fill{height:100%;background:var(--s1);border-radius:0 4px 4px 0}
+.day{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:14px 0 4px}
+.day:first-of-type{margin-top:0}
+.row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);width:100%;text-align:left}
+.row:last-child{border-bottom:0}
+.row .ic{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:var(--card2);font-size:14px;font-weight:700;color:var(--ink2);flex:none}
+.row .mid{flex:1;min-width:0}
+.row .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .s{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .r{text-align:right;flex:none}
+.row .r .t{font-weight:600}
+.empty{text-align:center;color:var(--muted);padding:24px 8px;font-size:15px}
+.empty b{display:block;color:var(--ink2);font-size:17px;margin-bottom:4px}
+.donut-wrap{display:flex;align-items:center;gap:18px;flex-wrap:wrap;justify-content:center}
+.donut{width:180px;height:180px;flex:none}
+.donut circle.seg{cursor:pointer;transition:stroke-width .15s}
+.donut text{fill:var(--ink)}
+.legend{flex:1;min-width:200px;display:flex;flex-direction:column;gap:4px}
+.leg{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:10px;width:100%;text-align:left}
+.leg.on{background:var(--card2)}
+.sw{width:12px;height:12px;border-radius:4px;flex:none}
+.leg .n{flex:1;font-size:14px}
+.leg .pc{font-weight:700;font-size:15px;min-width:54px;text-align:right}
+.leg .vv{font-size:12px;color:var(--muted);display:block}
+.quote{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px;color:var(--ink2)}
+.quote b{color:var(--ink)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:44px;padding:0 16px;border-radius:12px;background:var(--accent);color:var(--accent-ink);font-weight:600;font-size:16px}
+.btn.sec{background:var(--card2);color:var(--accent)}
+.btn.danger{background:transparent;color:var(--neg)}
+.btn.sm{height:34px;font-size:14px;padding:0 12px;border-radius:10px}
+.btn.full{width:100%}
+.btn[disabled]{opacity:.5}
+.spin{width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.banner{background:color-mix(in srgb,var(--s3) 18%,var(--card));border-radius:14px;padding:12px 14px;font-size:14px;margin:12px 0;display:flex;gap:10px;align-items:center;justify-content:space-between}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:color-mix(in srgb,var(--card) 90%,transparent);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-top:1px solid var(--line);padding:6px 8px calc(env(safe-area-inset-bottom) + 6px);display:flex;justify-content:space-around}
+nav.tabs button{flex:1;max-width:140px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:600;color:var(--muted);padding:4px 0}
+nav.tabs button svg{width:26px;height:26px}
+nav.tabs button.on{color:var(--accent)}
+.fab{position:fixed;right:max(16px,calc(50% - 304px));bottom:calc(env(safe-area-inset-bottom) + 76px);z-index:7;width:58px;height:58px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+.fab svg{width:28px;height:28px}
+.sheet-wrap{position:fixed;inset:0;z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet-wrap.hidden{display:none}
+.backdrop{position:absolute;inset:0;background:rgba(0,0,0,.4);animation:fd .2s}
+.sheet{position:relative;width:100%;max-width:640px;max-height:92vh;overflow:auto;background:var(--bg);border-radius:22px 22px 0 0;padding:8px 16px calc(env(safe-area-inset-bottom) + 20px);animation:up .25s cubic-bezier(.2,.8,.2,1)}
+@keyframes up{from{transform:translateY(100%)}} @keyframes fd{from{opacity:0}}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 10px}
+.sheet h2{font-size:20px;margin:4px 0 14px;display:flex;justify-content:space-between;align-items:center}
+.sheet h2 button{font-size:16px;font-weight:500;color:var(--accent)}
+.group{background:var(--card);border-radius:14px;overflow:hidden;margin-bottom:14px}
+.field{display:flex;align-items:center;gap:10px;padding:0 14px;min-height:50px;border-bottom:1px solid var(--line)}
+.field:last-child{border-bottom:0}
+.field label{flex:none;width:42%;font-size:15px;color:var(--ink)}
+.field input,.field select,.field textarea{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font:inherit;font-size:16px;text-align:right;padding:12px 0;outline:none;-webkit-appearance:none;appearance:none}
+.field textarea{text-align:left;min-height:110px;resize:vertical}
+.field.col{flex-direction:column;align-items:stretch;padding-top:12px}
+.field.col label{width:auto;color:var(--ink2);font-size:13px}
+.field input.bigval{font-size:28px;font-weight:700;text-align:left;padding:8px 0}
+.hint{font-size:13px;color:var(--muted);margin:-6px 4px 14px}
+.seg-ctl{display:flex;background:var(--card2);border-radius:11px;padding:3px;margin-bottom:14px;gap:2px}
+.seg-ctl button{flex:1;height:34px;border-radius:9px;font-size:13px;font-weight:600;color:var(--ink2)}
+.seg-ctl button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.actions{display:flex;flex-direction:column;gap:8px}
+.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 12px);transform:translateX(-50%);z-index:30;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;font-weight:500;max-width:calc(100% - 32px);box-shadow:0 6px 20px rgba(0,0,0,.2);animation:fd .2s}
+.hidden{display:none!important}
+.setrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 14px;border-bottom:1px solid var(--line);width:100%;text-align:left;font-size:15px}
+.setrow:last-child{border-bottom:0}
+.setrow span:last-child{color:var(--muted);font-size:14px}
+.setrow.blue{color:var(--accent)} .setrow.red{color:var(--neg)}
+.small-cap{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:18px 4px 6px}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="toprow">
+    <h1 id="title">Gastos</h1>
+    <button class="iconbtn" data-act="settings" aria-label="Ajustes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+  <div class="monthnav" id="monthnav">
+    <button data-act="prevMonth" aria-label="Mês anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <span id="monthLabel" class="num"></span>
+    <button data-act="nextMonth" aria-label="Próximo mês"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></button>
+  </div>
+</header>
+
+<main id="main"></main>
+
+<button class="fab" data-act="add" aria-label="Adicionar">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+
+<nav class="tabs">
+  <button data-tab="gastos" class="on">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20M6 15h4"/></svg>Gastos
+  </button>
+  <button data-tab="receitas">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v14M6 11l6 6 6-6"/><path d="M4 21h16"/></svg>Receitas
+  </button>
+  <button data-tab="invest">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg>Investimentos
+  </button>
+</nav>
+
+<div class="sheet-wrap hidden" id="sheet">
+  <div class="backdrop" data-act="closeSheet"></div>
+  <div class="sheet"><div class="grab"></div><div id="sheetBody"></div></div>
+</div>
+<div class="toast hidden" id="toast"></div>
+<input type="file" id="fileIn" accept=".json,application/json" class="hidden">
+
+<script src="app.js"></script>
+</body>
+</html>
